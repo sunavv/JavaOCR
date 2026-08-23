@@ -9,8 +9,12 @@ from app.ocr.engine import EngineResult, ExtractedTextLine, OCREngine
 
 logger = logging.getLogger(__name__)
 
-# Optimize startup
+# Optimize startup and disable PIR / oneDNN attribute conversion bugs in new executor
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
+os.environ["FLAGS_enable_pir_api"] = "0"
+os.environ["FLAGS_enable_pir_in_executor"] = "0"
+os.environ["FLAGS_use_onednn"] = "0"
+os.environ["FLAGS_use_mkldnn"] = "0"
 
 
 class PaddleOCREngine(OCREngine):
@@ -42,13 +46,14 @@ class PaddleOCREngine(OCREngine):
 
             logger.info("Initializing PaddleOCR engine (lang=%s)...", self.lang)
 
-            # PaddleOCR 3.x prefers modern kwargs; fallback cleanly if older version
+            # PaddleOCR prefers modern kwargs; fallback cleanly if older version
             try:
                 self._ocr = PaddleOCR(
                     use_textline_orientation=self.use_angle_cls,
                     lang=self.lang,
                     text_det_thresh=self.det_db_thresh,
                     text_det_box_thresh=self.det_db_box_thresh,
+                    enable_mkldnn=False,
                 )
             except (TypeError, ValueError):
                 try:
@@ -58,10 +63,11 @@ class PaddleOCREngine(OCREngine):
                         use_gpu=self.use_gpu,
                         det_db_thresh=self.det_db_thresh,
                         det_db_box_thresh=self.det_db_box_thresh,
+                        enable_mkldnn=False,
                     )
                 except Exception:
                     # Minimal initialization fallback
-                    self._ocr = PaddleOCR(lang=self.lang)
+                    self._ocr = PaddleOCR(lang=self.lang, enable_mkldnn=False)
 
             self._initialized = True
             logger.info("PaddleOCR engine successfully initialized.")

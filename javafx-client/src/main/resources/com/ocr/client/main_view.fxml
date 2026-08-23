@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.canvas.Canvas?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.ocr.client.controller.MainController"
+      spacing="0" prefWidth="1100" prefHeight="780" stylesheets="@styles.css">
+
+    <!-- Header Bar -->
+    <HBox alignment="CENTER_LEFT" spacing="16" styleClass="header-bar">
+        <VBox spacing="2">
+            <Label text="Document OCR &amp; Verification Prototype" styleClass="app-title"/>
+            <Label text="Independent Python PaddleOCR Service + JavaFX Client Verification" styleClass="app-subtitle"/>
+        </VBox>
+        <Region HBox.hgrow="ALWAYS"/>
+        <HBox alignment="CENTER" spacing="8">
+            <Label text="API Server:" styleClass="meta-label"/>
+            <TextField fx:id="serverUrlField" text="http://127.0.0.1:8000" prefWidth="180"/>
+            <Button fx:id="checkConnectionButton" text="Check Status" onAction="#handleCheckConnection" styleClass="btn-secondary"/>
+            <Label fx:id="connectionStatusLabel" text="Checking..." styleClass="meta-value"/>
+        </HBox>
+    </HBox>
+
+    <!-- Main Content Area -->
+    <SplitPane dividerPositions="0.48" VBox.vgrow="ALWAYS">
+        <!-- Left Panel: Document Upload & Visual Inspection -->
+        <VBox spacing="12" style="-fx-padding: 16;">
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Button fx:id="chooseFileButton" text="📂 Select Document..." onAction="#handleChooseFile" styleClass="btn-primary"/>
+                <ComboBox fx:id="sampleSelector" promptText="Load Test Sample..." prefWidth="200" onAction="#handleSampleSelected"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button fx:id="runOcrButton" text="⚡ Run OCR" onAction="#handleRunOcr" styleClass="btn-primary" disable="true"/>
+            </HBox>
+
+            <Label fx:id="selectedFileLabel" text="No document selected" styleClass="meta-label"/>
+
+            <!-- Document Canvas Container -->
+            <VBox VBox.vgrow="ALWAYS" alignment="CENTER" styleClass="card" minHeight="360">
+                <ScrollPane fx:id="imageScrollPane" fitToWidth="true" fitToHeight="true" VBox.vgrow="ALWAYS"
+                            style="-fx-background-color: transparent; -fx-background: transparent;">
+                    <StackPane fx:id="imageContainer" alignment="CENTER">
+                        <Canvas fx:id="documentCanvas" width="480" height="340"/>
+                    </StackPane>
+                </ScrollPane>
+                <HBox spacing="16" style="-fx-padding: 6 0 0 0;">
+                    <Label fx:id="imageDimsLabel" text="Resolution: - " styleClass="meta-label"/>
+                    <Label fx:id="fileSizeLabel" text="Size: - " styleClass="meta-label"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <CheckBox fx:id="showBoxesCheckbox" text="Show Bounding Boxes" selected="true" onAction="#handleToggleBoxes"/>
+                </HBox>
+            </VBox>
+        </VBox>
+
+        <!-- Right Panel: Verification & Results -->
+        <VBox spacing="14" style="-fx-padding: 16;">
+            <!-- Verification Card -->
+            <VBox spacing="10" styleClass="card">
+                <Label text="Application-Specific Identity Verification" styleClass="section-header"/>
+                
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="Expected Name:" style="-fx-text-fill: #cbd5e1; -fx-font-weight: bold;"/>
+                    <TextField fx:id="expectedNameField" promptText="e.g. Sunav Sharma" HBox.hgrow="ALWAYS" onKeyReleased="#handleNameKeyReleased"/>
+                    <Button text="Verify" onAction="#handleVerifyName" styleClass="btn-primary"/>
+                </HBox>
+
+                <!-- Status Banner Badge -->
+                <HBox fx:id="statusBadgeBox" alignment="CENTER" styleClass="status-badge, badge-idle">
+                    <Label fx:id="statusBadgeText" text="READY FOR DOCUMENT" styleClass="status-badge-text"/>
+                </HBox>
+
+                <Label fx:id="verificationMessageLabel" text="Select a document and run OCR to begin validation."
+                       wrapText="true" style="-fx-text-fill: #94a3b8; -fx-font-size: 12px;"/>
+            </VBox>
+
+            <!-- OCR Extraction Results View -->
+            <TabPane VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
+                <!-- Tab 1: Extracted Lines Table/List -->
+                <Tab text="Text Regions &amp; Confidence">
+                    <VBox spacing="8" style="-fx-padding: 10 0 0 0;">
+                        <ListView fx:id="linesListView" VBox.vgrow="ALWAYS"/>
+                    </VBox>
+                </Tab>
+
+                <!-- Tab 2: Full Combined Text -->
+                <Tab text="Full Normalized Text">
+                    <VBox spacing="8" style="-fx-padding: 10 0 0 0;">
+                        <TextArea fx:id="fullTextArea" VBox.vgrow="ALWAYS" editable="false" wrapText="true"/>
+                    </VBox>
+                </Tab>
+
+                <!-- Tab 3: Performance & Metadata -->
+                <Tab text="Engine &amp; Performance">
+                    <VBox spacing="10" style="-fx-padding: 12;" styleClass="card">
+                        <HBox spacing="10">
+                            <Label text="Active OCR Engine:" styleClass="meta-label"/>
+                            <Label fx:id="engineLabel" text="-" styleClass="meta-value"/>
+                        </HBox>
+                        <HBox spacing="10">
+                            <Label text="Backend Processing Time:" styleClass="meta-label"/>
+                            <Label fx:id="processingTimeLabel" text="-" styleClass="meta-value"/>
+                        </HBox>
+                        <HBox spacing="10">
+                            <Label text="Lines Detected:" styleClass="meta-label"/>
+                            <Label fx:id="lineCountLabel" text="-" styleClass="meta-value"/>
+                        </HBox>
+                        <HBox spacing="10">
+                            <Label text="Deskew Angle Applied:" styleClass="meta-label"/>
+                            <Label fx:id="deskewAngleLabel" text="-" styleClass="meta-value"/>
+                        </HBox>
+                        <HBox spacing="10">
+                            <Label text="CLAHE Contrast Enhanced:" styleClass="meta-label"/>
+                            <Label fx:id="claheStatusLabel" text="-" styleClass="meta-value"/>
+                        </HBox>
+                    </VBox>
+                </Tab>
+            </TabPane>
+        </VBox>
+    </SplitPane>
+</VBox>

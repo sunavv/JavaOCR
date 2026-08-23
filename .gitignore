@@ -1,0 +1,106 @@
+# =============================================================================
+# Python (OCR Microservice)
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env
+!.env.example
+
+# Pytest
+.pytest_cache/
+.cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# mypy / pyright / ruff
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+
+# PaddleOCR model cache (downloaded at runtime, can be large)
+*.pdmodel
+*.pdiparams
+*.pdparams
+
+# =============================================================================
+# Java / Maven (JavaFX Client)
+# =============================================================================
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*
+
+# =============================================================================
+# IDEs
+# =============================================================================
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# VS Code
+.vscode/
+
+# NetBeans
+nbproject/
+
+# =============================================================================
+# OS Artefacts
+# =============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =============================================================================
+# Tests
+# =============================================================================
+# Python OCR module test directory only
+ocr-module/tests/
+
+# =============================================================================
+# Logs & Temp
+# =============================================================================
+*.log
+logs/
+tmp/
+temp/

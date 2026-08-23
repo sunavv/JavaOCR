@@ -1,240 +1,182 @@
-# Reusable Python OCR Module (PP-OCRv6 / PaddleOCR 3.x) & JavaFX Verification Prototype
+# Python OCR Module + JavaFX Client
 
-A modular, standalone Python OCR microservice powered by **PaddleOCR 3.x with the PP-OCRv6 pipeline**, accompanied by a decoupled **JavaFX prototype client** for document identity verification.
-
----
-
-## Architecture Overview
-
-```
-                          ┌───────────────────────────┐
-                          │   JavaFX Client / Web     │
-                          │ (Application Validation)  │
-                          └─────────────┬─────────────┘
-                                        │ HTTP POST multipart/form-data
-                                        ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ Python OCR Microservice (FastAPI)                                       │
-│                                                                         │
-│  [POST /api/v1/ocr] ───► [Validation] ───► [OpenCV Preprocessing]      │
-│                                                   │ (Deskew, CLAHE)    │
-│                                                   ▼                     │
-│  [Normalized JSON Response] ◄─── [Text Normalizer] ◄─── [OCREngine]     │
-│                                                     (PaddleOCR PP-OCRv6)│
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### Strict Separation of Responsibilities
-
-- **Python OCR Service**: Strictly extracts text, line bounding boxes `[x1, y1, x2, y2]`, polygon geometry, confidence scores, and preprocessing telemetry. **Contains zero kiosk-specific or verification business logic.**
-- **JavaFX Client**: Handles desktop UI, image selection, bounding box overlays, and client-side name normalization / matching against extracted text, computing status badges (`VERIFIED`, `NOT VERIFIED`, `OCR FAILED / RESCAN`).
+A standalone **Python OCR microservice** powered by [PaddleOCR 3.x (PP-OCRv6)](https://github.com/PaddlePaddle/PaddleOCR), paired with a **JavaFX desktop client** that consumes the REST API.
 
 ---
 
-## Directory Structure
+## Features
+
+- **PP-OCRv6 pipeline** — state-of-the-art OCR accuracy via PaddleOCR 3.x
+- **OpenCV preprocessing** — automatic deskewing, CLAHE contrast enhancement, and optional denoising
+- **FastAPI REST API** — `multipart/form-data` upload, JSON response with text, bounding boxes, polygons, and confidence scores
+- **Pluggable engine** — swap between `paddle` (real OCR) and `mock` (deterministic, no GPU needed) via `.env`
+- **JavaFX desktop client** — image picker, live bounding-box overlay, and text extraction results
+- **Decoupled architecture** — the service and client communicate over HTTP; run them on the same machine or different hosts
+
+---
+
+## Architecture
+
+```
+  ┌──────────────────────────┐
+  │     JavaFX Client        │
+  │  (Desktop Application)   │
+  └────────────┬─────────────┘
+               │ HTTP POST multipart/form-data
+               ▼
+┌──────────────────────────────────────────────────────┐
+│ Python OCR Microservice (FastAPI)                    │
+│                                                      │
+│  POST /api/v1/ocr                                    │
+│    → Validation                                      │
+│    → OpenCV Preprocessing  (Deskew, CLAHE)           │
+│    → PaddleOCR PP-OCRv6 Engine                       │
+│    → Text Normalizer (NFKC)                          │
+│    → Normalized JSON Response                        │
+└──────────────────────────────────────────────────────┘
+```
+
+---
+
+## Repository Structure
 
 ```
 .
-├── ocr-module/                     # Standalone Python OCR Microservice
+├── ocr-module/                     # Python OCR Microservice
 │   ├── app/
-│   │   ├── api/
-│   │   │   └── routes.py           # FastAPI endpoints (/api/v1/ocr, /api/v1/health)
-│   │   ├── core/
-│   │   │   └── config.py           # Pydantic Settings (.env configuration)
+│   │   ├── api/routes.py           # FastAPI endpoints
+│   │   ├── core/config.py          # Pydantic Settings (.env)
 │   │   ├── ocr/
-│   │   │   ├── engine.py           # Abstract OCREngine interface & data models
-│   │   │   ├── paddle_engine.py    # PaddleOCR 3.x / PP-OCRv6 engine implementation
-│   │   │   ├── mock_engine.py      # Deterministic Mock engine for testing/CI
-│   │   │   ├── factory.py          # Dynamic engine factory
-│   │   │   └── preprocessing.py    # OpenCV deskewing, CLAHE, denoising
-│   │   ├── models/
-│   │   │   └── response.py         # Standardized Pydantic response models
-│   │   ├── services/
-│   │   │   └── ocr_service.py      # Business workflow orchestration
-│   │   ├── utils/
-│   │   │   ├── text.py             # Text cleaning & NFKC normalization
-│   │   │   └── dataset_generator.py # Synthetic benchmark dataset generator
-│   │   └── main.py                 # FastAPI application & CORS setup
-│   ├── tests/                      # Automated test suite (16 tests)
-│   │   ├── test_api.py             # FastAPI REST endpoint integration tests
-│   │   ├── test_engine.py          # OCR engine & OpenCV preprocessing tests
-│   │   └── test_text_normalization.py
+│   │   │   ├── engine.py           # Abstract OCREngine + data models
+│   │   │   ├── paddle_engine.py    # PaddleOCR 3.x / PP-OCRv6
+│   │   │   ├── mock_engine.py      # Deterministic mock (no GPU)
+│   │   │   ├── factory.py          # Engine factory
+│   │   │   └── preprocessing.py   # OpenCV pipeline
+│   │   ├── models/response.py      # Pydantic response schemas
+│   │   ├── services/ocr_service.py # Workflow orchestration
+│   │   ├── utils/text.py           # NFKC text normalization
+│   │   └── main.py                 # FastAPI app + CORS
 │   ├── requirements.txt
-│   ├── .env.example
-│   └── README.md
+│   └── .env.example
 │
-└── javafx-client/                  # JavaFX Prototype Client
-    ├── pom.xml                     # Maven build file (JavaFX 21, Jackson, JUnit 5)
-    ├── README.md
-    └── src/
-        ├── main/
-        │   ├── java/com/ocr/client/
-        │   │   ├── App.java
-        │   │   ├── controller/MainController.java
-        │   │   ├── model/ (OcrResponse, TextLine, DocumentMeta, VerificationStatus)
-        │   │   └── service/ (OcrApiClient, VerificationService)
-        │   └── resources/com/ocr/client/
-        │       ├── main_view.fxml
-        │       ├── styles.css
-        │       └── test-samples/   # Bundled test images
-        └── test/java/com/ocr/client/service/
-            └── VerificationServiceTest.java
+└── javafx-client/                  # JavaFX Desktop Client
+    ├── pom.xml                     # Maven (JavaFX 21, Jackson, JUnit 5)
+    └── src/main/java/com/ocr/client/
+        ├── App.java
+        ├── controller/MainController.java
+        ├── model/                  # OcrResponse, TextLine, DocumentMeta
+        └── service/                # OcrApiClient, VerificationService
 ```
 
 ---
 
-## Quick Start Guide
+## Prerequisites
 
-### 1. Start the Python OCR Microservice
+| Tool | Version |
+|---|---|
+| Python | 3.9+ |
+| Java | 21+ |
+| Maven | 3.8+ |
+| pip | latest |
+
+---
+
+## Quick Start
+
+### 1. Start the OCR Service
 
 ```bash
-# 1. Navigate to the project root (adjust path to wherever you cloned it)
-cd FinalModule
+# Clone and enter the repo
+git clone https://github.com/sunavv/JavaOCR.git
+cd JavaOCR
 
-# 2. Activate virtual environment
-source .venv/bin/activate
+# Create and activate a virtual environment
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
-# 3. Start the FastAPI service
+# Install dependencies
+pip install -r ocr-module/requirements.txt
+
+# Copy env config (edit as needed)
+cp ocr-module/.env.example ocr-module/.env
+
+# Start the service
 cd ocr-module
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 The service will be available at:
-- **API Base URL**: `http://127.0.0.1:8000`
-- **Interactive Swagger Docs**: `http://127.0.0.1:8000/docs`
-- **Health Check**: `http://127.0.0.1:8000/api/v1/health`
 
-### 2. Run the JavaFX Verification Prototype Client
+| Endpoint | URL |
+|---|---|
+| API base | `http://127.0.0.1:8000` |
+| Swagger UI | `http://127.0.0.1:8000/docs` |
+| Health check | `http://127.0.0.1:8000/api/v1/health` |
+
+### 2. Run the JavaFX Client
 
 In a separate terminal:
 
 ```bash
-cd FinalModule/javafx-client
+cd JavaOCR/javafx-client
 
-# Run the JavaFX Application (connects to http://127.0.0.1:8000 by default)
-# No separate build step needed — mvn javafx:run compiles automatically before launching.
+# Compile and launch (no separate build step needed)
 mvn javafx:run
 
-# If you hit stale-class or classpath errors, clean first:
+# Clean build if you hit classpath issues
 mvn clean javafx:run
 ```
 
----
-
-## Running on a Different Server
-
-The OCR service and JavaFX client are fully decoupled via HTTP. Here is how to
-connect them when the service runs on a separate machine or port.
-
-### 1. Expose the OCR Service on a Remote Host
-
-By default the service binds to `0.0.0.0` (all interfaces), so any port-accessible
-machine on the same network can reach it. Just pass the host's IP or a custom port:
+By default the client connects to `http://127.0.0.1:8000`. To point it at a remote server:
 
 ```bash
-# Example: bind to all interfaces on port 9000
-uvicorn app.main:app --host 0.0.0.0 --port 9000
+mvn javafx:run -Docr.server.url=http://192.168.1.50:8000
 ```
 
-You can also set `HOST` and `PORT` in `ocr-module/.env` (copy from `.env.example`):
+---
+
+## Configuration
+
+All service settings are controlled via `ocr-module/.env` (copy from `.env.example`):
 
 ```env
+OCR_ENGINE=paddle          # paddle | mock
+PORT=8000
 HOST=0.0.0.0
-PORT=9000
-```
-
-### 2. Point the JavaFX Client at the Remote Server
-
-The `OcrApiClient` accepts any base URL in its constructor. Pass the remote
-address when instantiating it in `MainController`:
-
-```java
-// Default (localhost)
-OcrApiClient client = new OcrApiClient();
-
-// Remote server
-OcrApiClient client = new OcrApiClient("http://192.168.1.50:9000");
-```
-
-Alternatively, set the URL via a system property so you do not need to recompile:
-
-```java
-// In OcrApiClient constructor — read from system property with fallback
-String baseUrl = System.getProperty("ocr.server.url", "http://127.0.0.1:8000");
-```
-
-Then launch the client with:
-
-```bash
-mvn javafx:run -Docr.server.url=http://192.168.1.50:9000
-```
-
-### 3. Verify Connectivity
-
-Before launching the full client, confirm the service is reachable:
-
-```bash
-curl http://<server-ip>:<port>/api/v1/health
-# Expected: {"status": "healthy", ...}
+ENABLE_PREPROCESSING=true
+DESKEW_ENABLED=true
+CLAHE_ENABLED=true
+PADDLE_USE_GPU=false
 ```
 
 ---
 
-## Testing & Verification
-
-### Run Python Automated Tests (Pytest)
-```bash
-source .venv/bin/activate
-export PYTHONPATH=$(pwd)/ocr-module:$PYTHONPATH
-pytest ocr-module/tests -v
-```
-
-### Run JavaFX Unit Tests (JUnit 5)
-```bash
-cd javafx-client
-mvn test
-```
-
----
-
-## API Specification
+## API Reference
 
 ### `POST /api/v1/ocr`
-Uploads a document image and returns recognized text with bounding boxes, confidence, and preprocessing telemetry.
 
-**Request:** `multipart/form-data` with `file` parameter (PNG, JPEG, WebP, BMP, TIFF).
+Upload an image and receive extracted text with bounding boxes.
 
-**Example Response:**
+**Request:** `multipart/form-data` — field `file` (PNG, JPEG, WebP, BMP, TIFF, max 20 MB)
+
+**Response:**
 ```json
 {
   "success": true,
   "processing_time_ms": 145.2,
-  "document": {
-    "filename": "document.png",
-    "type": "image/png",
-    "width": 1000,
-    "height": 650,
-    "channels": 3,
-    "size_bytes": 82992
-  },
-  "text": "OFFICIAL IDENTIFICATION DOCUMENT\nName: Sunav Sharma\nDocument No: ABC123456\nDate of Birth: 15/08/1990\nNationality: Nepalese",
+  "document": { "filename": "doc.png", "width": 1000, "height": 650 },
+  "text": "Name: Jane Doe\nDocument No: XYZ789",
   "lines": [
     {
-      "text": "Name: Sunav Sharma",
+      "text": "Name: Jane Doe",
       "confidence": 0.9998,
       "bbox": [64, 124, 180, 149],
-      "polygon": [[64, 124], [180, 124], [180, 149], [64, 149]]
-    },
-    {
-      "text": "Document No: ABC123456",
-      "confidence": 0.9987,
-      "bbox": [62, 183, 204, 207],
-      "polygon": [[62, 183], [204, 183], [204, 207], [62, 207]]
+      "polygon": [[64,124],[180,124],[180,149],[64,149]]
     }
   ],
   "preprocessing": {
     "applied": true,
-    "deskew_angle": -5.5,
+    "deskew_angle": -1.5,
     "clahe_applied": true,
     "denoise_applied": false
   },
@@ -242,3 +184,41 @@ Uploads a document image and returns recognized text with bounding boxes, confid
   "error": null
 }
 ```
+
+### `GET /api/v1/health`
+
+Returns service status and loaded engine.
+
+---
+
+## Running Tests
+
+```bash
+# Python (pytest)
+source .venv/bin/activate
+export PYTHONPATH=$(pwd)/ocr-module:$PYTHONPATH
+pytest ocr-module/tests -v
+
+# Java (JUnit 5)
+cd javafx-client
+mvn test
+```
+
+---
+
+## Tech Stack
+
+- **OCR Engine** — PaddleOCR 3.x, PP-OCRv6
+- **Image preprocessing** — OpenCV (deskew, CLAHE, denoise)
+- **Service framework** — FastAPI + Uvicorn
+- **Configuration** — Pydantic Settings
+- **Desktop client** — JavaFX 21, FXML
+- **HTTP** — Java `HttpClient` (JDK 11+)
+- **JSON** — Jackson Databind
+- **Testing** — pytest, JUnit 5
+
+---
+
+## License
+
+MIT

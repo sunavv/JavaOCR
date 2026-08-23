@@ -104,3 +104,6 @@ ocr-module/tests/
 logs/
 tmp/
 temp/
+
+# Internal / backup files
+README.internal.md

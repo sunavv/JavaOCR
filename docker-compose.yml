@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  ocr-service:
+    build:
+      context: ./ocr-module
+      dockerfile: Dockerfile
+    container_name: ocr-microservice
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - OCR_ENGINE=paddle
+      - PADDLE_USE_GPU=false
+      - ENABLE_PREPROCESSING=true
+      - DESKEW_ENABLED=true
+      - CLAHE_ENABLED=true
+    volumes:
+      - paddle_models:/root/.paddleocr
+      - paddlex_models:/root/.paddlex
+
+volumes:
+  paddle_models:
+  paddlex_models:

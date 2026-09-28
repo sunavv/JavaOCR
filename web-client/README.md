@@ -9,7 +9,6 @@ A modern, standalone, zero-build web client for document text extraction, intera
 - **Document Upload & Drag-and-Drop**: Easily browse or drop any document image (`PNG`, `JPG`, `WebP`, `BMP`, `TIFF`).
 - **Interactive Region Visualizer**: Real-time canvas overlaying detected bounding boxes with confidence scores. Hover to inspect region text; click to jump directly to the line.
 - **Full Text & Line-by-Line Extraction**: Tabbed view displaying the complete text and individual lines with confidence ratings.
-- **Identity Name Verification**: Client-side fuzzy and exact matching algorithm with Levenshtein distance to verify personal identification documents against an expected name.
 - **Telemetry & Engine KPIs**: Display processing time in milliseconds, OCR engine (`PP-OCRv6`), lines count, and image preprocessing status (CLAHE contrast and deskew angle).
 - **Flexible Backend Switching**: Built-in toggle to switch seamlessly between Cloud Remote (`http://103.144.195.105:8000`) and Local Python/Docker (`http://localhost:8000`).
 

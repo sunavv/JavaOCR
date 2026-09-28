@@ -30,8 +30,6 @@
     fileInput: document.getElementById('file-input'),
     dropZone: document.getElementById('drop-zone'),
     btnBrowseFile: document.getElementById('btn-browse-file'),
-    sampleSelect: document.getElementById('sample-document-select'),
-    btnLoadSample: document.getElementById('btn-load-sample'),
 
     docFilename: document.getElementById('doc-filename'),
     docResolution: document.getElementById('doc-resolution'),
@@ -47,12 +45,6 @@
     btnRunOcr: document.getElementById('btn-run-ocr'),
     ocrSpinner: document.getElementById('ocr-spinner'),
     ocrButtonText: document.getElementById('ocr-button-text'),
-
-    expectedNameInput: document.getElementById('expected-name-input'),
-    btnVerifyName: document.getElementById('btn-verify-name'),
-    verificationStatusBadge: document.getElementById('verification-status-badge'),
-    verificationStatusText: document.getElementById('verification-status-text'),
-    verificationMessageBox: document.getElementById('verification-message-box'),
 
     kpiEngine: document.getElementById('kpi-engine'),
     kpiTime: document.getElementById('kpi-time'),
@@ -142,13 +134,6 @@
       }
     });
 
-    // Sample Document Selector
-    el.sampleSelect.addEventListener('change', () => {
-      el.btnLoadSample.disabled = !el.sampleSelect.value;
-    });
-
-    el.btnLoadSample.addEventListener('click', handleLoadSample);
-
     // Canvas Interactions & Hover
     el.toggleBoundingBoxes.addEventListener('change', drawCanvas);
     el.canvas.addEventListener('mousemove', handleCanvasMouseMove);
@@ -161,12 +146,6 @@
 
     // OCR Action
     el.btnRunOcr.addEventListener('click', runOcrExtraction);
-
-    // Verification
-    el.expectedNameInput.addEventListener('input', () => {
-      if (state.ocrResponse) verifyIdentityName();
-    });
-    el.btnVerifyName.addEventListener('click', verifyIdentityName);
 
     // Tab Switching
     el.tabButtons.forEach((btn) => {
@@ -287,44 +266,6 @@
       img.src = e.target.result;
     };
     reader.readAsDataURL(file);
-  }
-
-  async function handleLoadSample() {
-    const sampleName = el.sampleSelect.value;
-    if (!sampleName) return;
-
-    el.btnLoadSample.disabled = true;
-    el.btnLoadSample.textContent = 'Loading...';
-
-    // Attempt loading from local samples folder or fallback
-    const samplePaths = [
-      `samples/${sampleName}`,
-      `../ocr-module/tests/data/${sampleName}`,
-    ];
-
-    let blob = null;
-    for (const path of samplePaths) {
-      try {
-        const resp = await fetch(path);
-        if (resp.ok) {
-          blob = await resp.blob();
-          break;
-        }
-      } catch (e) {
-        // try next
-      }
-    }
-
-    el.btnLoadSample.disabled = false;
-    el.btnLoadSample.textContent = 'Load';
-
-    if (blob) {
-      const file = new File([blob], sampleName, { type: blob.type || 'image/png' });
-      handleFileSelect(file);
-      showToast(`Loaded sample: ${sampleName}`, 'success');
-    } else {
-      showToast(`Could not load sample '${sampleName}'. Please browse manually.`, 'error');
-    }
   }
 
   // ==========================================================================
@@ -566,8 +507,6 @@
     el.btnRunOcr.disabled = true;
     el.ocrSpinner.classList.remove('hidden');
     el.ocrButtonText.textContent = 'Processing...';
-    setVerificationBadge('idle', 'PROCESSING...');
-    el.verificationMessageBox.textContent = 'Extracting document information...';
 
     const startTime = performance.now();
 
@@ -614,7 +553,6 @@
 
       // Populate UI with retrieved data
       renderOcrResults(data);
-      verifyIdentityName();
 
       const speedupNotice = optimization.isOptimized
         ? ` (Fast Mode: Pre-scaled ${optimization.originalDim} → ${optimization.optimizedDim})`
@@ -704,8 +642,6 @@
   }
 
   function handleOcrError(errorMsg) {
-    setVerificationBadge('failed', 'OCR FAILED / RESCAN');
-    el.verificationMessageBox.innerHTML = `<span style="color:#fb7185"><strong>Extraction Failed:</strong> ${escapeHtml(errorMsg)}</span>`;
     el.fullTextOutput.value = `Error during OCR extraction:\n${errorMsg}`;
     el.linesList.innerHTML = `<div class="empty-state"><p style="color:#fb7185">Extraction failed: ${escapeHtml(errorMsg)}</p></div>`;
     el.tabLinesCount.textContent = '0';
@@ -718,8 +654,6 @@
   }
 
   function resetResultsUI() {
-    setVerificationBadge('idle', 'READY FOR DOCUMENT');
-    el.verificationMessageBox.textContent = 'Click "Run OCR" to extract text and verify identity.';
     el.fullTextOutput.value = '';
     el.fulltextCharCount.textContent = '0 characters';
     el.fulltextWordCount.textContent = '0 words';
@@ -734,137 +668,6 @@
     el.kpiRoundtrip.textContent = '-';
     el.kpiLines.textContent = '-';
     el.kpiPreprocessing.textContent = '-';
-  }
-
-  // ==========================================================================
-  // Client-Side Identity Verification Service (Exact Match to JavaFX Logic)
-  // ==========================================================================
-  const TITLE_PREFIXES = /^(mr|mrs|ms|dr|prof)\.?\s+/i;
-  const SPECIAL_CHARS = /[^a-zA-Z0-9\s]/g;
-  const MULTIPLE_SPACES = /\s+/g;
-
-  function normalizeText(input) {
-    if (!input) return '';
-    let s = input.trim().toLowerCase();
-    s = s.replace(TITLE_PREFIXES, '');
-    s = s.replace(SPECIAL_CHARS, ' ');
-    s = s.replace(MULTIPLE_SPACES, ' ');
-    return s.trim();
-  }
-
-  function levenshteinDistance(s1, s2) {
-    const costs = [];
-    for (let j = 0; j <= s2.length; j++) costs[j] = j;
-
-    for (let i = 1; i <= s1.length; i++) {
-      costs[0] = i;
-      let nw = i - 1;
-      for (let j = 1; j <= s2.length; j++) {
-        const cj = Math.min(
-          1 + Math.min(costs[j], costs[j - 1]),
-          s1.charAt(i - 1) === s2.charAt(j - 1) ? nw : nw + 1
-        );
-        nw = costs[j];
-        costs[j] = cj;
-      }
-    }
-    return costs[s2.length];
-  }
-
-  function similarity(s1, s2) {
-    if (s1 === s2) return 1.0;
-    const maxLen = Math.max(s1.length, s2.length);
-    if (maxLen === 0) return 1.0;
-    const dist = levenshteinDistance(s1, s2);
-    return 1.0 - dist / maxLen;
-  }
-
-  function verifyIdentityName() {
-    if (!state.ocrResponse || !state.ocrResponse.success) {
-      setVerificationBadge('failed', 'OCR FAILED / RESCAN');
-      el.verificationMessageBox.textContent = 'OCR response was unsuccessful or empty. Please rescan.';
-      return;
-    }
-
-    const lines = state.ocrResponse.lines || [];
-    const fullText = state.ocrResponse.text || '';
-
-    if (lines.length === 0 && !fullText.trim()) {
-      setVerificationBadge('failed', 'OCR FAILED / RESCAN');
-      el.verificationMessageBox.textContent =
-        'No text could be extracted from document. Image might be blank or blurry.';
-      return;
-    }
-
-    const expectedName = el.expectedNameInput.value;
-    const normExpected = normalizeText(expectedName);
-
-    if (!normExpected) {
-      setVerificationBadge('idle', 'NOT VERIFIED');
-      el.verificationMessageBox.textContent = 'Please enter an expected name to verify.';
-      return;
-    }
-
-    let highestScore = 0.0;
-    let bestMatchedLine = null;
-
-    // 1. Check direct line matches
-    for (const line of lines) {
-      const normLine = normalizeText(line.text);
-      if (!normLine) continue;
-
-      // Exact substring check
-      if (normLine.includes(normExpected)) {
-        setVerificationBadge('verified', 'VERIFIED');
-        el.verificationMessageBox.innerHTML = `<strong>Exact match confirmed:</strong> Found in line <em>"${escapeHtml(line.text)}"</em> (OCR Confidence: ${(line.confidence * 100).toFixed(1)}%).`;
-        return;
-      }
-
-      // Fuzzy line similarity
-      const score = similarity(normExpected, normLine);
-      if (score > highestScore) {
-        highestScore = score;
-        bestMatchedLine = line.text;
-      }
-
-      // Token window matching (e.g. line is "Name: Sunav Sharma")
-      const tokens = normLine.split(' ');
-      for (let i = 0; i < tokens.length; i++) {
-        let sb = '';
-        for (let j = i; j < tokens.length; j++) {
-          sb += (sb ? ' ' : '') + tokens[j];
-          const tokenScore = similarity(normExpected, sb);
-          if (tokenScore > highestScore) {
-            highestScore = tokenScore;
-            bestMatchedLine = line.text;
-          }
-        }
-      }
-    }
-
-    // 2. Check full text substring
-    const normFull = normalizeText(fullText);
-    if (normFull.includes(normExpected)) {
-      setVerificationBadge('verified', 'VERIFIED');
-      el.verificationMessageBox.innerHTML = `<strong>Match confirmed:</strong> Found in full document text.`;
-      return;
-    }
-
-    // 3. Fuzzy match threshold (80% similarity or above)
-    if (highestScore >= 0.8) {
-      setVerificationBadge('verified', 'VERIFIED');
-      el.verificationMessageBox.innerHTML = `<strong>Fuzzy match confirmed:</strong> ${(highestScore * 100).toFixed(1)}% match with line <em>"${escapeHtml(bestMatchedLine)}"</em>.`;
-      return;
-    }
-
-    // 4. Not Verified
-    setVerificationBadge('not-verified', 'NOT VERIFIED');
-    el.verificationMessageBox.innerHTML = `Expected name <strong>"${escapeHtml(expectedName)}"</strong> was not found in document. (Best match: ${(highestScore * 100).toFixed(1)}% with "${escapeHtml(bestMatchedLine || 'N/A')}").`;
-  }
-
-  function setVerificationBadge(type, text) {
-    el.verificationStatusBadge.className = `badge-status badge-${type}`;
-    el.verificationStatusText.textContent = text;
   }
 
   // ==========================================================================

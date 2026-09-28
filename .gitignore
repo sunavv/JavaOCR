@@ -105,5 +105,8 @@ logs/
 tmp/
 temp/
 
+web-client
+
 # Internal / backup files
 README.internal.md
+
